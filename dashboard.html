@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Análisis de Ventas — Mikra</title>
+<meta name="theme-color" content="#080810">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ventas Mikra">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080810; --surface:#0f0f1a; --surface-2:#16162a; --border:#1c1c2e; --border-bright:#2a2a40;
+  --text:#e0e0f0; --muted:#6a6a85; --muted-2:#8a8aa5;
+  --yellow:#FFE600; --green:#00e676; --blue:#40c4ff; --purple:#d070ff; --orange:#ffaa44;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:32px;}
+
+.header{position:sticky;top:0;z-index:50;background:rgba(8,8,16,.94);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
+.header-title{font-size:15px;font-weight:700;letter-spacing:-.3px;}
+.header-title span{color:var(--yellow);}
+.header-sub{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);}
+
+.wrap{padding:0 12px;max-width:640px;margin:0 auto;}
+
+/* filtros */
+.filters{display:flex;flex-direction:column;gap:8px;margin:12px 0;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted-2);padding:6px 12px;
+  border:1px solid var(--border-bright);border-radius:20px;background:transparent;cursor:pointer;transition:.15s;user-select:none;}
+.chip:active{transform:scale(.96);}
+.chip.active{border-color:var(--yellow);background:var(--yellow);color:#000;font-weight:700;}
+.chip.acc.active{border-color:var(--purple);background:var(--purple);}
+.chip.met.active{border-color:var(--green);background:var(--green);color:#00110a;}
+.range-row{display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+.range-row input{background:var(--surface-2);border:1px solid var(--border-bright);border-radius:8px;color:var(--text);
+  padding:6px 8px;font-family:inherit;font-size:12px;color-scheme:dark;}
+
+/* hero número */
+.hero{background:linear-gradient(135deg,var(--surface),#14142a);border:1px solid rgba(255,230,0,.15);
+  border-radius:16px;padding:18px 16px;margin-bottom:12px;text-align:center;}
+.hero-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:4px;}
+.hero-num{font-family:'Space Mono',monospace;font-size:56px;font-weight:700;color:var(--yellow);line-height:1;
+  text-shadow:0 0 30px rgba(255,230,0,.25);}
+.hero-meta{display:flex;justify-content:center;gap:18px;margin-top:10px;font-family:'Space Mono',monospace;}
+.hm{display:flex;flex-direction:column;}
+.hm-v{font-size:16px;font-weight:700;color:var(--text);}
+.hm-l{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);}
+
+/* paneles */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted-2);}
+.panel-title.sku{color:var(--yellow);} .panel-title.color{color:var(--blue);} .panel-title.talle{color:var(--green);}
+.filter-note{font-family:'Space Mono',monospace;font-size:10px;color:var(--blue);cursor:pointer;}
+.filter-note .x{color:var(--red,#ff4444);margin-left:4px;}
+
+.bar-row{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:default;}
+.bar-row.clickable{cursor:pointer;border-radius:6px;}
+.bar-row.clickable:active{background:rgba(255,255,255,.05);}
+.bar-row.sel{background:rgba(64,196,255,.1);}
+.bar-name{flex:0 0 34%;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;height:20px;background:var(--surface-2);border-radius:5px;overflow:hidden;position:relative;}
+.bar-fill{height:100%;border-radius:5px;transition:width .3s;}
+.p-sku .bar-fill{background:linear-gradient(90deg,#b8a000,var(--yellow));}
+.p-color .bar-fill{background:linear-gradient(90deg,#2a7db8,var(--blue));}
+.p-talle .bar-fill{background:linear-gradient(90deg,#00a152,var(--green));}
+.bar-val{flex:0 0 auto;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--text);min-width:34px;text-align:right;}
+.empty{color:var(--muted);font-size:12px;text-align:center;padding:16px 0;font-family:'Space Mono',monospace;}
+
+.demo-badge{display:inline-block;margin:2px 0 10px;font-family:'Space Mono',monospace;font-size:10px;
+  color:var(--orange);background:rgba(255,170,68,.08);border:1px solid rgba(255,170,68,.25);border-radius:20px;padding:3px 10px;}
+
+/* ── SELECTOR DE ARTÍCULOS ── */
+.sel-open{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
+  padding:11px;margin:2px 0 4px;background:rgba(208,112,255,.08);border:1px dashed var(--purple);
+  border-radius:12px;color:#e0b3ff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.sel-open:active{background:rgba(208,112,255,.16);}
+.sel-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px;}
+.sel-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(208,112,255,.12);
+  border:1px solid var(--purple);border-radius:20px;padding:5px 6px 5px 11px;font-size:12px;color:#e9ccff;}
+.sel-chip img{width:20px;height:20px;border-radius:5px;object-fit:cover;}
+.sel-chip button{background:none;border:none;color:#e9ccff;font-size:15px;line-height:1;cursor:pointer;padding:0 2px;}
+.sel-clear{background:none;border:1px solid var(--border-bright);color:var(--muted-2);border-radius:20px;
+  padding:5px 11px;font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:200;
+  display:none;align-items:flex-end;justify-content:center;}
+.modal.open{display:flex;}
+.modal-sheet{width:100%;max-width:640px;background:var(--surface);border:1px solid var(--border-bright);
+  border-bottom:none;border-radius:18px 18px 0 0;max-height:88vh;display:flex;flex-direction:column;}
+.modal-top{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
+.modal-top-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.modal-title{font-size:15px;font-weight:700;}
+.modal-x{background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1;}
+.sel-search{width:100%;background:var(--surface-2);border:1px solid var(--border-bright);border-radius:10px;
+  color:var(--text);padding:10px 12px;font-family:inherit;font-size:14px;}
+.sel-search:focus{outline:none;border-color:var(--purple);}
+.modal-body{overflow-y:auto;padding:12px 16px 20px;}
+.cat-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted-2);
+  margin:12px 0 8px;display:flex;align-items:center;gap:6px;}
+.art-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;}
+.art-card{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;overflow:hidden;
+  cursor:pointer;position:relative;transition:border-color .15s;}
+.art-card.sel{border-color:var(--purple);box-shadow:0 0 0 1px var(--purple);}
+.art-card .thumb{width:100%;aspect-ratio:1;object-fit:cover;background:var(--bg);display:block;}
+.art-card .thumb-ph{width:100%;aspect-ratio:1;background:var(--bg);display:flex;align-items:center;
+  justify-content:center;font-size:1.7em;color:var(--border-bright);}
+.art-card .cap{padding:6px 7px;font-size:10.5px;line-height:1.25;color:var(--text);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:32px;}
+.art-card .uni{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);padding:0 7px 6px;}
+.art-card .tick{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;
+  background:var(--purple);color:#fff;display:none;align-items:center;justify-content:center;font-size:12px;}
+.art-card.sel .tick{display:flex;}
+.sel-empty{color:var(--muted);font-size:12px;text-align:center;padding:20px 0;font-family:'Space Mono',monospace;}
+.modal-foot{padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
+.modal-foot button{flex:1;padding:11px;border-radius:10px;border:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;}
+.mf-apply{background:var(--purple);color:#fff;}
+.mf-clear{background:var(--surface-2);color:var(--muted-2);border:1px solid var(--border-bright);}
+
+/* ── GRÁFICO DE EVOLUCIÓN ── */
+.chart-modes{display:flex;gap:2px;background:var(--surface-2);border:1px solid var(--border-bright);border-radius:8px;padding:2px;}
+.chart-modes .cm{background:none;border:none;color:var(--muted);font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer;font-family:inherit;}
+.chart-modes .cm.active{background:var(--orange);color:#1a1000;}
+.chart-scroll{overflow-x:auto;padding-bottom:4px;}
+.chart{display:flex;align-items:flex-end;gap:6px;height:170px;min-width:min-content;padding-top:18px;}
+.cbar-wrap{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:34px;flex:1;}
+.cbar{width:70%;max-width:26px;background:linear-gradient(180deg,var(--orange),#c47a10);border-radius:4px 4px 0 0;position:relative;transition:height .3s;min-height:2px;}
+.cbar-val{font-family:'Space Mono',monospace;font-size:8.5px;color:var(--muted-2);margin-bottom:3px;white-space:nowrap;}
+.cbar-lbl{font-family:'Space Mono',monospace;font-size:8.5px;color:var(--muted);margin-top:5px;white-space:nowrap;}
+/* comparar años */
+.chart-legend{display:flex;gap:12px;justify-content:center;margin-bottom:8px;font-family:'Space Mono',monospace;font-size:10px;}
+.chart-legend .lg{display:flex;align-items:center;gap:4px;color:var(--muted-2);}
+.chart-legend .lg::before{content:'';width:9px;height:9px;border-radius:2px;}
+.chart-legend .lg0::before{background:var(--yellow);} .chart-legend .lg1::before{background:var(--blue);} .chart-legend .lg2::before{background:var(--purple);}
+.cgroups{display:flex;align-items:flex-end;gap:5px;height:150px;min-width:min-content;}
+.cgroup{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:30px;flex:1;}
+.cbars{display:flex;align-items:flex-end;justify-content:center;gap:2px;height:100%;width:100%;}
+.cbars .cbar{width:8px;border-radius:2px 2px 0 0;}
+.cbars .cbar.y0{background:var(--yellow);} .cbars .cbar.y1{background:var(--blue);} .cbars .cbar.y2{background:var(--purple);}
+.cbars .cbar.y3{background:var(--green);} .cbars .cbar.y4{background:var(--orange);}
+.chart-legend .lg3::before{background:var(--green);} .chart-legend .lg4::before{background:var(--orange);}
+.fbar.y3{background:var(--green);} .fbar.y4{background:var(--orange);}
+/* selector de años */
+.yr-chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px;}
+.yr-chip{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted-2);padding:4px 11px;
+  border:1px solid var(--border-bright);border-radius:20px;background:transparent;cursor:pointer;}
+.yr-chip.on{border-color:var(--orange);background:rgba(255,170,68,.14);color:var(--orange);font-weight:700;}
+.chart-empty{color:var(--muted);font-size:12px;text-align:center;padding:30px 0;font-family:'Space Mono',monospace;}
+.chart-hint{text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:6px;}
+.cgroup{cursor:pointer;border-radius:6px;}
+.cgroup:active{background:rgba(255,255,255,.05);}
+/* vista enfocada (zoom de un mes) */
+.focus-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.focus-back{background:var(--surface-2);border:1px solid var(--border-bright);color:var(--muted-2);
+  border-radius:20px;padding:5px 11px;font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;}
+.focus-back:active{border-color:var(--orange);color:var(--orange);}
+.focus-title{font-size:14px;font-weight:700;color:var(--orange);}
+.focus-bars{display:flex;align-items:flex-end;justify-content:space-around;gap:14px;height:150px;padding-top:20px;}
+.fb{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;flex:1;max-width:90px;}
+.fb-val{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--text);margin-bottom:5px;white-space:nowrap;}
+.fbar{width:60%;max-width:52px;border-radius:5px 5px 0 0;min-height:3px;transition:height .3s;}
+.fbar.y0{background:var(--yellow);} .fbar.y1{background:var(--blue);} .fbar.y2{background:var(--purple);}
+.fb-lbl{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted-2);margin-top:7px;}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="header-title">Análisis de <span>Ventas</span></div>
+    <div class="header-sub" id="metaLine">cargando…</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="demoBadge"></div>
+
+  <div class="filters">
+    <div class="chips" id="periodChips">
+      <button class="chip" data-days="7">7 días</button>
+      <button class="chip active" data-days="30">30 días</button>
+      <button class="chip" data-days="90">90 días</button>
+      <button class="chip" data-mes="1">Este mes</button>
+      <button class="chip" data-anio="1">Este año</button>
+      <button class="chip" data-todo="1">Todo</button>
+    </div>
+    <div class="range-row">
+      <input type="date" id="desde"> <span>→</span> <input type="date" id="hasta">
+    </div>
+    <div class="chips" id="accChips"></div>
+    <div class="chips" id="metricChips">
+      <button class="chip met active" data-metric="unidades">Unidades</button>
+      <button class="chip met" data-metric="valor">Valor $</button>
+      <button class="chip met" data-metric="gananciaArs">Ganancia $</button>
+      <button class="chip met" data-metric="gananciaUsd">Ganan. USD</button>
+    </div>
+  </div>
+
+  <button class="sel-open" id="selOpen">＋ Analizar artículos puntuales</button>
+  <div class="sel-chips" id="selChips" style="display:none"></div>
+
+  <div class="hero">
+    <div class="hero-label" id="heroLabel">Unidades vendidas · últimos 30 días</div>
+    <div class="hero-num" id="heroNum">—</div>
+    <div class="hero-meta">
+      <div class="hm"><div class="hm-v" id="mOrdenes">—</div><div class="hm-l" id="lOrdenes">unidades</div></div>
+      <div class="hm"><div class="hm-v" id="mValor">—</div><div class="hm-l">valor ARS</div></div>
+      <div class="hm"><div class="hm-v" id="mProm">—</div><div class="hm-l" id="lProm">ganan. ARS</div></div>
+    </div>
+  </div>
+
+  <div class="panel p-chart">
+    <div class="panel-head">
+      <div class="panel-title" style="color:var(--orange)">Evolución</div>
+      <div class="chart-modes">
+        <button class="cm active" data-cmode="mes">Por mes</button>
+        <button class="cm" data-cmode="anio">Años</button>
+        <button class="cm" data-cmode="cuenta">Cuentas</button>
+      </div>
+    </div>
+    <div class="chart-scroll"><div id="chart"></div></div>
+  </div>
+
+  <div class="panel p-sku">
+    <div class="panel-head"><div class="panel-title sku">Top artículos</div></div>
+    <div id="listSku"></div>
+  </div>
+
+  <div class="panel p-color">
+    <div class="panel-head"><div class="panel-title color">Top colores</div>
+      <div class="filter-note" id="colorHint" style="display:none"></div></div>
+    <div id="listColor"></div>
+  </div>
+
+  <div class="panel p-talle">
+    <div class="panel-head"><div class="panel-title talle">Top talles</div>
+      <div class="filter-note" id="talleFilter" style="display:none"></div></div>
+    <div id="listTalle"></div>
+  </div>
+</div>
+
+<!-- MODAL SELECTOR DE ARTÍCULOS -->
+<div class="modal" id="selModal">
+  <div class="modal-sheet">
+    <div class="modal-top">
+      <div class="modal-top-row">
+        <div class="modal-title">Elegí artículos para el análisis</div>
+        <button class="modal-x" id="selClose">×</button>
+      </div>
+      <input class="sel-search" id="selSearch" placeholder="Buscar artículo, color…" autocomplete="off">
+    </div>
+    <div class="modal-body" id="selBody"></div>
+    <div class="modal-foot">
+      <button class="mf-clear" id="selModalClear">Limpiar</button>
+      <button class="mf-apply" id="selModalApply">Aplicar (<span id="selCount">0</span>)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+// URL del Worker. Si se deja vacío, corre con DATOS DE EJEMPLO en el navegador.
+const WORKER_URL = 'https://ventas-analisis.rafaelassir.workers.dev';
+
+// ── ESTADO ──────────────────────────────────────────────────────────────────
+const state = { desde:null, hasta:null, cuenta:'', color:'', metric:'unidades', periodLabel:'', articulos:[], chartMode:'mes', chartFocus:null, chartYears:null };
+
+// Worker de inventario (mismo que resumen.html / Pedidos): imágenes + catálogo.
+const MIKRA_STOCK = 'https://mikra-stock-cache.rafaelassir.workers.dev';
+
+// Métricas disponibles. total/dim = nombre del campo en la respuesta; fmt = cómo se muestra.
+const fmt=n=>Math.round(n).toLocaleString('es-AR');
+const METRICS = {
+  unidades:    {label:'Unidades',   hero:'Unidades vendidas', total:'unidades',         dim:'unidades',    fmt:v=>fmt(v)},
+  valor:       {label:'Valor $',    hero:'Valor vendido ARS', total:'valor',            dim:'valor',       fmt:v=>'$'+fmt(v)},
+  gananciaArs: {label:'Ganancia $', hero:'Ganancia ARS',      total:'gananciaArs',      dim:'gananciaArs', fmt:v=>'$'+fmt(v)},
+  gananciaUsd: {label:'Ganan. USD', hero:'Ganancia USD',      total:'gananciaUsdTotal', dim:'gananciaUsd', fmt:v=>'US$'+fmt(v)},
+};
+
+// ── DATOS DE EJEMPLO (se borran al conectar el Worker) ───────────────────────
+// Cuentas: en la base se guardan CRUDAS (igual que el Excel). El dashboard traduce
+// solo para MOSTRAR; el filtro sigue usando el valor crudo, así no hay que tocar la base.
+const CUENTA_LABEL = { 'Mirados24':'Chaya', 'TiendaNube':'Tienda Nube', 'Mikra':'Mikra' };
+const cuentaLabel = raw => CUENTA_LABEL[raw] || raw;
+const CUENTAS = ['Mikra','Mirados24','TiendaNube']; // fallback (valores crudos) si /meta no trae la lista
+const ARTS = [
+  {sku:'110166',nombre:'Polera Lanilla',colores:['Negro','Verde','Celeste','Beige'],talles:['8','10','12','14']},
+  {sku:'117691',nombre:'Calza Dama Oxford',colores:['Negro','Gris'],talles:['S','M','L','XL']},
+  {sku:'116217',nombre:'Campera Lycra',colores:['Gris','Negro'],talles:['M','L','XL']},
+  {sku:'110045',nombre:'Polera Térmica',colores:['Negro','Blanco','Marino'],talles:['4','6','8','10','12']},
+  {sku:'115902',nombre:'Pollera Bengalina',colores:['Negro','Militar'],talles:['M','L','XL','3XL']},
+  {sku:'110271',nombre:'Remera Térmica',colores:['Blanco','Gris','Negro'],talles:['S','M','L']},
+];
+function buildSample(){
+  const rows=[]; const today=new Date('2026-07-21'); let seed=7;
+  const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280;};
+  for(let d=0; d<120; d++){
+    const day=new Date(today); day.setDate(today.getDate()-d);
+    const iso=day.toISOString().slice(0,10);
+    const n=2+Math.floor(rnd()*7);
+    for(let i=0;i<n;i++){
+      const a=ARTS[Math.floor(rnd()*ARTS.length)];
+      const valor=8000+Math.floor(rnd()*22000);
+      rows.push({fecha:iso,sku:a.sku,nombre:a.nombre,
+        color:a.colores[Math.floor(rnd()*a.colores.length)],
+        talle:a.talles[Math.floor(rnd()*a.talles.length)],
+        cantidad:1+Math.floor(rnd()*2),
+        valor_ars:valor,
+        ganancia_ars:Math.floor(valor*(0.3+rnd()*0.2)),
+        ganancia_usd:2+Math.floor(rnd()*8),
+        cuenta:CUENTAS[Math.floor(rnd()*CUENTAS.length)],
+        orden:'ORD'+(1000+rows.length)});
+    }
+  }
+  return rows;
+}
+const SAMPLE = WORKER_URL ? null : buildSample();
+
+// ── AGREGACIÓN (misma lógica que el Worker, para modo ejemplo) ───────────────
+function aggregate(rows, f){
+  const inRange = rows.filter(r=>
+    (!f.desde || r.fecha>=f.desde) && (!f.hasta || r.fecha<=f.hasta) &&
+    (!f.cuenta || r.cuenta===f.cuenta) &&
+    (!f.articulos.length || f.articulos.includes(r.nombre)));
+  const forColor = f.color ? inRange.filter(r=>r.color===f.color) : inRange;
+  const sum=(arr,k)=>arr.reduce((s,r)=>s+(r[k]||0),0);
+  const dimField = METRICS[f.metric].dim;
+  const top=(arr,key,n=12)=>{
+    const m={};
+    arr.forEach(r=>{const k=r[key]||'—';(m[k]=m[k]||{k,unidades:0,valor:0,gananciaArs:0,gananciaUsd:0});
+      m[k].unidades+=r.cantidad; m[k].valor+=r.valor_ars||0;
+      m[k].gananciaArs+=r.ganancia_ars||0; m[k].gananciaUsd+=r.ganancia_usd||0;});
+    return Object.values(m).sort((a,b)=>b[dimField]-a[dimField]).slice(0,n);
+  };
+  return {
+    total:{unidades:sum(inRange,'cantidad'), valor:sum(inRange,'valor_ars'),
+      gananciaArs:sum(inRange,'ganancia_ars'), gananciaUsdTotal:sum(inRange,'ganancia_usd'),
+      ordenes:new Set(inRange.map(r=>r.orden)).size},
+    topSku:top(inRange,'nombre'),
+    topColor:top(inRange,'color'),
+    topTalle:top(forColor,'talle'), // talle respeta el color seleccionado
+  };
+}
+
+async function fetchData(){
+  const f=state;
+  if(!WORKER_URL) return aggregate(SAMPLE,f);
+  const q=new URLSearchParams();
+  if(f.desde)q.set('desde',f.desde); if(f.hasta)q.set('hasta',f.hasta);
+  if(f.cuenta)q.set('cuenta',f.cuenta); if(f.color)q.set('color',f.color);
+  if(f.articulos.length)q.set('articulos',f.articulos.join('|'));
+  q.set('metric',f.metric);
+  const r=await fetch(WORKER_URL+'/query?'+q); return r.json();
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const fmtMoney=n=>'$'+fmt(n);
+
+function renderBars(el,items,cls,opts={}){
+  if(!items||!items.length){el.innerHTML='<div class="empty">sin datos en el período</div>';return;}
+  const M=METRICS[state.metric], key=M.dim;
+  const max=Math.max(...items.map(i=>i[key]||0))||1;
+  el.innerHTML=items.map(i=>{
+    const v=i[key]||0;
+    const w=Math.max(4,(v/max)*100);
+    const sel=opts.selKey && i.k===opts.selKey ? ' sel':'';
+    const clk=opts.onClick ? ' clickable':'';
+    return `<div class="bar-row${clk}${sel}" data-k="${encodeURIComponent(i.k)}">
+      <div class="bar-name" title="${i.k}">${i.k}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div>
+      <div class="bar-val">${M.fmt(v)}</div></div>`;
+  }).join('');
+  if(opts.onClick) el.querySelectorAll('.bar-row').forEach(row=>
+    row.onclick=()=>opts.onClick(decodeURIComponent(row.dataset.k)));
+}
+
+async function refresh(){
+  const M=METRICS[state.metric];
+  const data=await fetchData();
+  const t=data.total||{};
+  $('heroNum').textContent=M.fmt(t[M.total]||0);
+  const artSuf=state.articulos.length?` · ${state.articulos.length} artículo${state.articulos.length>1?'s':''}`:'';
+  $('heroLabel').textContent=M.hero+' · '+(state.periodLabel||'')+artSuf;
+  // Fila de contexto: siempre unidades, valor ARS y ganancia ARS.
+  $('mOrdenes').textContent=fmt(t.unidades||0); $('lOrdenes').textContent='unidades';
+  $('mValor').textContent=fmtMoney(t.valor||0);
+  $('mProm').textContent=fmtMoney(t.gananciaArs||0); $('lProm').textContent='ganan. ARS';
+
+  renderBars($('listSku'),data.topSku,'sku',{
+    selKey: state.articulos.length===1 ? state.articulos[0] : null,
+    onClick:(k)=>{ state.articulos = (state.articulos.length===1 && state.articulos[0]===k)?[]:[k];
+      renderSelChips(); refresh(); }
+  });
+  renderBars($('listColor'),data.topColor,'color',{
+    selKey:state.color,
+    onClick:(k)=>{ state.color = (state.color===k)?'':k; syncColorHint(); refresh(); }
+  });
+  renderBars($('listTalle'),data.topTalle,'talle');
+  renderChart();
+}
+
+// ── GRÁFICO DE EVOLUCIÓN ─────────────────────────────────────────────────────
+let _serieCache={};
+async function fetchSerie(){
+  const f=state, key=[f.cuenta,f.color,f.articulos.join(',')].join('|');
+  if(_serieCache[key]) return _serieCache[key];
+  let serie=[];
+  if(!WORKER_URL){
+    const m={};
+    SAMPLE.filter(r=>(!f.cuenta||r.cuenta===f.cuenta)&&(!f.color||r.color===f.color)&&(!f.articulos.length||f.articulos.includes(r.nombre)))
+      .forEach(r=>{const k=r.fecha.slice(0,7);(m[k]=m[k]||{mes:k,unidades:0,valor:0,gananciaArs:0,gananciaUsd:0});
+        m[k].unidades+=r.cantidad;m[k].valor+=r.valor_ars||0;m[k].gananciaArs+=r.ganancia_ars||0;m[k].gananciaUsd+=r.ganancia_usd||0;});
+    serie=Object.values(m).sort((a,b)=>a.mes.localeCompare(b.mes));
+  }else{
+    const q=new URLSearchParams();
+    if(f.cuenta)q.set('cuenta',f.cuenta); if(f.color)q.set('color',f.color);
+    if(f.articulos.length)q.set('articulos',f.articulos.join('|'));
+    serie=await fetch(WORKER_URL+'/serie?'+q).then(r=>r.json()).then(d=>d.serie||[]).catch(()=>[]);
+  }
+  _serieCache[key]=serie; return serie;
+}
+// Serie separada por cuenta (para "Comparar cuentas"). Ignora el filtro de cuenta
+// (queremos ver todas), pero respeta color/artículo.
+let _serieCuentaCache={};
+async function fetchSerieCuenta(){
+  const f=state, key=[f.color,f.articulos.join(',')].join('|');
+  if(_serieCuentaCache[key]) return _serieCuentaCache[key];
+  let serie=[];
+  if(!WORKER_URL){
+    const m={};
+    SAMPLE.filter(r=>(!f.color||r.color===f.color)&&(!f.articulos.length||f.articulos.includes(r.nombre)))
+      .forEach(r=>{const k=r.fecha.slice(0,7)+'|'+r.cuenta;(m[k]=m[k]||{mes:r.fecha.slice(0,7),cuenta:r.cuenta,unidades:0,valor:0,gananciaArs:0,gananciaUsd:0});
+        m[k].unidades+=r.cantidad;m[k].valor+=r.valor_ars||0;m[k].gananciaArs+=r.ganancia_ars||0;m[k].gananciaUsd+=r.ganancia_usd||0;});
+    serie=Object.values(m);
+  }else{
+    // Una consulta por cuenta (así funciona con el Worker actual, sin depender de split).
+    const results=await Promise.all(RAW_CUENTAS.map(cta=>{
+      const q=new URLSearchParams(); q.set('cuenta',cta);
+      if(f.color)q.set('color',f.color);
+      if(f.articulos.length)q.set('articulos',f.articulos.join('|'));
+      return fetch(WORKER_URL+'/serie?'+q).then(r=>r.json())
+        .then(d=>(d.serie||[]).map(m=>({...m,cuenta:cta}))).catch(()=>[]);
+    }));
+    serie=results.flat();
+  }
+  _serieCuentaCache[key]=serie; return serie;
+}
+// Cuentas crudas presentes en los datos (se completa desde /meta en init).
+let RAW_CUENTAS=['Mikra','Mirados24','TiendaNube'];
+const MESES3=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function shortNum(v){
+  const M=METRICS[state.metric], money=state.metric!=='unidades', pre=state.metric==='gananciaUsd'?'US$':(money?'$':'');
+  if(v>=1e6) return pre+(v/1e6).toFixed(1).replace('.0','')+'M';
+  if(v>=1e3) return pre+(v/1e3).toFixed(0)+'k';
+  return pre+Math.round(v);
+}
+function mesLbl(mes){const [y,mo]=mes.split('-');return MESES3[+mo]+' '+y.slice(2);}
+function fmtDia(s){const [y,m,d]=s.split('-');return d+' '+MESES3[+m].toLowerCase();}
+function fmtRange(){return (state.desde&&state.hasta)?(fmtDia(state.desde)+' → '+fmtDia(state.hasta)):'año completo';}
+
+// Compara el MISMO tramo (día/mes de desde–hasta) entre los últimos 2 años.
+async function fetchYearCompare(){
+  const f=state, M=METRICS[f.metric];
+  const mmdD=(f.desde||'2000-01-01').slice(5), mmdH=(f.hasta||'2000-12-31').slice(5);
+  const curYear=+((f.hasta||todayISO()).slice(0,4));
+  const years=[curYear-1,curYear];
+  if(!WORKER_URL){
+    return years.map(y=>{const d=`${y}-${mmdD}`,h=`${y}-${mmdH}`;
+      const v=SAMPLE.filter(r=>r.fecha>=d&&r.fecha<=h&&(!f.cuenta||r.cuenta===f.cuenta)&&(!f.color||r.color===f.color)&&(!f.articulos.length||f.articulos.includes(r.nombre)))
+        .reduce((s,r)=>s+(f.metric==='unidades'?r.cantidad:(f.metric==='valor'?r.valor_ars:(f.metric==='gananciaArs'?r.ganancia_ars:r.ganancia_usd))||0),0);
+      return {year:y,value:v};});
+  }
+  return Promise.all(years.map(async y=>{
+    const q=new URLSearchParams();
+    q.set('desde',`${y}-${mmdD}`); q.set('hasta',`${y}-${mmdH}`); q.set('metric',f.metric);
+    if(f.cuenta)q.set('cuenta',f.cuenta); if(f.color)q.set('color',f.color);
+    if(f.articulos.length)q.set('articulos',f.articulos.join('|'));
+    const d=await fetch(WORKER_URL+'/query?'+q).then(r=>r.json()).catch(()=>({total:{}}));
+    return {year:y, value:(d.total||{})[M.total]||0};
+  }));
+}
+function groupedChart(el,M,key,groupsData,legendItems,headerHtml){
+  // groupsData: [{label, bars:[{v, cls, title}]}]; legendItems: [{txt, cls}]; headerHtml opcional arriba
+  headerHtml = headerHtml || '';
+  el.className='';
+  // Vista enfocada: se tocó un mes -> se muestra solo ese, grande, con valores.
+  if(state.chartFocus){
+    const g=groupsData.find(x=>x.label===state.chartFocus);
+    if(g){
+      const max=Math.max(...g.bars.map(b=>b.v),1);
+      el.innerHTML=headerHtml+`<div class="focus-head"><button class="focus-back">← ver todos</button>`+
+        `<span class="focus-title">${g.label}</span></div>`+
+        `<div class="focus-bars">`+g.bars.map((b,i)=>{const h=Math.max(2,(b.v/max)*100);
+          return `<div class="fb"><div class="fb-val">${M.fmt(b.v)}</div>`+
+            `<div class="fbar ${b.cls}" style="height:${h}%"></div>`+
+            `<div class="fb-lbl">${(legendItems[i]||{}).txt||''}</div></div>`;}).join('')+`</div>`;
+      el.querySelector('.focus-back').onclick=()=>{ state.chartFocus=null; renderChart(); };
+      return;
+    }
+    state.chartFocus=null;
+  }
+  const max=Math.max(...groupsData.flatMap(g=>g.bars.map(b=>b.v)),1);
+  const legend='<div class="chart-legend">'+legendItems.map(l=>`<span class="lg ${l.cls}">${l.txt}</span>`).join('')+'</div>';
+  const hint='<div class="chart-hint">tocá un mes para verlo de cerca</div>';
+  const groups='<div class="cgroups">'+groupsData.map(g=>{
+    const bars=g.bars.map(b=>{const h=Math.max(1,(b.v/max)*100);
+      return `<div class="cbar ${b.cls}" style="height:${h}%" title="${b.title||''}"></div>`;}).join('');
+    return `<div class="cgroup" data-focus="${g.label}"><div class="cbars">${bars}</div><div class="cbar-lbl">${g.label}</div></div>`;
+  }).join('')+'</div>';
+  el.innerHTML=headerHtml+legend+hint+groups;
+  el.querySelectorAll('.cgroup').forEach(c=>c.onclick=()=>{ state.chartFocus=c.dataset.focus; renderChart(); });
+}
+
+async function renderChart(){
+  const el=$('chart'), M=METRICS[state.metric], key=M.dim;
+
+  if(state.chartMode==='mes'){
+    const serie=await fetchSerie();
+    if(!serie.length){ el.innerHTML='<div class="chart-empty">sin datos</div>'; return; }
+    el.className='chart';
+    const months=serie.slice(-14);
+    const max=Math.max(...months.map(m=>m[key]||0),1);
+    el.innerHTML=months.map(m=>{const v=m[key]||0,h=Math.max(2,(v/max)*100);
+      return `<div class="cbar-wrap"><div class="cbar-val">${shortNum(v)}</div>`+
+        `<div class="cbar" style="height:${h}%" title="${mesLbl(m.mes)}: ${M.fmt(v)}"></div>`+
+        `<div class="cbar-lbl">${mesLbl(m.mes)}</div></div>`;}).join('');
+
+  }else if(state.chartMode==='anio'){
+    // Compara MES POR MES entre los años elegidos.
+    const serie=await fetchSerie();
+    if(!serie.length){ el.innerHTML='<div class="chart-empty">sin datos</div>'; return; }
+    const byMonth={}, yset=new Set();
+    serie.forEach(m=>{const [y,mo]=m.mes.split('-');yset.add(y);(byMonth[mo]=byMonth[mo]||{})[y]=m[key]||0;});
+    const allYears=[...yset].sort();
+    let sel=(state.chartYears||allYears.slice(-3)).filter(y=>allYears.includes(y));
+    if(!sel.length) sel=allYears.slice(-1);
+    const header='<div class="yr-chips">'+allYears.map(y=>`<button class="yr-chip${sel.includes(y)?' on':''}" data-y="${y}">${y}</button>`).join('')+'</div>';
+    groupedChart(el,M,key,
+      Array.from({length:12},(_,i)=>{const mo=String(i+1).padStart(2,'0');
+        return {label:MESES3[i+1], bars:sel.map((y,yi)=>({v:(byMonth[mo]||{})[y]||0,cls:'y'+yi,title:`${MESES3[i+1]} ${y}: ${M.fmt((byMonth[mo]||{})[y]||0)}`}))};}),
+      sel.map((y,i)=>({txt:y,cls:'lg'+i})), header);
+    el.querySelectorAll('.yr-chip').forEach(c=>c.onclick=()=>{
+      const y=c.dataset.y; let cur=(state.chartYears||allYears.slice(-3)).slice();
+      cur = cur.includes(y) ? cur.filter(x=>x!==y) : cur.concat(y);
+      cur.sort(); state.chartYears = cur.length?cur:null; state.chartFocus=null; renderChart();
+    });
+
+  }else{ // cuenta
+    const serie=await fetchSerieCuenta();
+    if(!serie.length){ el.innerHTML='<div class="chart-empty">sin datos</div>'; return; }
+    const byMonth={}, accs=new Set();
+    serie.forEach(r=>{accs.add(r.cuenta);(byMonth[r.mes]=byMonth[r.mes]||{})[r.cuenta]=r[key]||0;});
+    const accList=[...accs].sort();
+    const months=Object.keys(byMonth).sort().slice(-12);
+    groupedChart(el,M,key,
+      months.map(mes=>({label:mesLbl(mes), bars:accList.map((a,ai)=>({v:(byMonth[mes]||{})[a]||0,cls:'y'+ai,title:`${cuentaLabel(a)} ${mesLbl(mes)}: ${M.fmt((byMonth[mes]||{})[a]||0)}`}))})),
+      accList.map((a,i)=>({txt:cuentaLabel(a),cls:'lg'+i})));
+  }
+}
+document.querySelectorAll('.chart-modes .cm').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.chart-modes .cm').forEach(c=>c.classList.remove('active'));
+  b.classList.add('active'); state.chartMode=b.dataset.cmode; state.chartFocus=null; renderChart();
+});
+
+function syncColorHint(){
+  const tf=$('talleFilter'), ch=$('colorHint');
+  if(state.color){
+    tf.style.display='block';
+    tf.innerHTML=`solo ${state.color} <span class="x">✕ quitar</span>`;
+    tf.onclick=()=>{state.color='';syncColorHint();refresh();};
+    ch.style.display='block'; ch.textContent='tocá un color para filtrar talles';
+  }else{
+    tf.style.display='none'; ch.style.display='block';
+    ch.textContent='tocá un color para filtrar talles';
+    ch.style.cursor='default';
+  }
+}
+
+// ── FILTROS DE PERÍODO ───────────────────────────────────────────────────────
+function setPeriod(desde,hasta,label){
+  state.desde=desde; state.hasta=hasta; state.periodLabel=label;
+  $('desde').value=desde||''; $('hasta').value=hasta||'';
+  refresh();
+}
+function daysAgo(n){const d=new Date();d.setDate(d.getDate()-(n-1));return d.toISOString().slice(0,10);}
+const todayISO=()=>new Date().toISOString().slice(0,10);
+
+$('periodChips').querySelectorAll('.chip').forEach(chip=>{
+  chip.onclick=()=>{
+    $('periodChips').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    if(chip.dataset.days){const n=+chip.dataset.days;setPeriod(daysAgo(n),todayISO(),`últimos ${n} días`);}
+    else if(chip.dataset.mes){const d=new Date();const f=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;setPeriod(f,todayISO(),'este mes');}
+    else if(chip.dataset.anio){setPeriod(`${new Date().getFullYear()}-01-01`,todayISO(),'este año');}
+    else if(chip.dataset.todo){setPeriod(null,todayISO(),'todo el histórico');}
+  };
+});
+['desde','hasta'].forEach(id=>$(id).onchange=()=>{
+  $('periodChips').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  state.desde=$('desde').value||null; state.hasta=$('hasta').value||null;
+  state.periodLabel='período personalizado'; refresh();
+});
+
+// ── SELECTOR DE MÉTRICA ──────────────────────────────────────────────────────
+$('metricChips').querySelectorAll('.chip').forEach(chip=>chip.onclick=()=>{
+  $('metricChips').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  chip.classList.add('active'); state.metric=chip.dataset.metric; refresh();
+});
+
+// ── FILTRO DE CUENTA ─────────────────────────────────────────────────────────
+function buildAccChips(cuentas){
+  const el=$('accChips');
+  // data-cuenta = valor CRUDO (lo que se filtra en la base); el texto es el nombre lindo.
+  el.innerHTML=`<button class="chip acc active" data-cuenta="">Todas</button>`+
+    cuentas.map(c=>`<button class="chip acc" data-cuenta="${c}">${cuentaLabel(c)}</button>`).join('');
+  el.querySelectorAll('.chip').forEach(chip=>chip.onclick=()=>{
+    el.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active'); state.cuenta=chip.dataset.cuenta; refresh();
+  });
+}
+
+// ── SELECTOR DE ARTÍCULOS (buscador + fotos + categorías, estilo Pedidos) ─────
+// Categorías curadas (portadas de Pedidos): listas de artículos por género.
+const QUICK_ACCESS = [
+  { icon:'👨', cat:'Hombre',
+    articles:['Remera Termica Hombre','Remera Dep. SET Hombre','Short Dep. SET Hombre'] },
+  { icon:'👩', cat:'Dama',
+    articles:['Remera Termica Dama','Polera Termica Dama','Calza Dama Oxford -Adidas-','Blazer Paño','Campera Lycra Dama','Remera Dama Jersey V'],
+    children:[
+      { name:'Polleras', articles:['Pollera Morley Aro','Pollera Lanilla Brush','Pollera Cey 3 Tiempos','Pollera Bengalina Pinzas NEW','Pollera EcoCuero Evase - Corta','Pollera EcoCuero Evase - Rodilla','Pollera EcoCuero Evase Larga - Midi','Pollera EcoCuero Mini S/cierre','Pollera EcoCuero Rodilla S/cierre','Pollera Lycra Adidas Recta','Pollera Lycra Adidas Evase'] },
+      { name:'Calzas', articles:['Calza Dama Oxford -Adidas-','Calza Dama Oxford -Lisa-','Calza Termica Oxford','Calza Dama Sublimada','Calza Dama Lisa','Calza Dama Termica Sublimada','Calza Dama Termica Lisa'] },
+      { name:'Verano', articles:['Top Lycra','Top Alg - Lycra','Top + Short Lycra Estampado','Short Pollera Lycra','Top Lycra Especiales','Top Lycra Tiritas','Top Tiritas Alg - Lycra'] },
+    ] },
+  { icon:'🧒', cat:'Niño/a',
+    articles:['Polera Termica Niño/a','Remera Termica Niño/a','Calza Niña Termica Lisa','Pantalon Termico Ketten','Conjunto Deportivo SET Niños'] },
+];
+const homeArticlePhotos = {
+  'Calza Niña Termica Lisa':'https://http2.mlstatic.com/D_NQ_NP_2X_832164-MLA110187392590_052026-S.jpg',
+  'Pollera EcoCuero Evase - Rodilla':'https://http2.mlstatic.com/D_NQ_NP_2X_724811-MLA89369470818_082025-S.jpg',
+  'Remera Dep. SET Hombre':'https://http2.mlstatic.com/D_NQ_NP_2X_908525-MLA109854464306_042026-S.jpg',
+  'Short Dep. SET Hombre':'https://http2.mlstatic.com/D_NQ_NP_2X_973717-MLA100846174123_122025-S.jpg',
+  'Calza Dama Termica Sublimada':'https://http2.mlstatic.com/D_NQ_NP_2X_649232-MLA76956732548_062024-S.jpg',
+  'Pantalon Termico Ketten':'https://http2.mlstatic.com/D_NQ_NP_2X_786900-MLA98391714359_112025-S.jpg',
+};
+let IMAGES_MAP={}, CATALOG=[], ARTICLES=[], _artImgCache={};
+
+// Imagen de un artículo por su NOMBRE: primero el override, si no busca un producto
+// del catálogo con ese título y usa su imagen (por código). Igual que Pedidos.
+function articleImage(name){
+  if(homeArticlePhotos[name]) return homeArticlePhotos[name];
+  if(name in _artImgCache) return _artImgCache[name];
+  const lower=name.toLowerCase(); let url='';
+  for(const p of CATALOG){
+    if((p.titulo||'').toLowerCase()===lower){
+      const u=IMAGES_MAP[p.codigo]||IMAGES_MAP[String(p.codigo)]||''; if(u){url=u;break;}
+    }
+  }
+  _artImgCache[name]=url; return url;
+}
+
+async function loadSelectorData(){
+  try{
+    const [im,cat,arts]=await Promise.all([
+      fetch(MIKRA_STOCK+'/?mode=images').then(r=>r.json()).catch(()=>({})),
+      fetch(MIKRA_STOCK).then(r=>r.json()).catch(()=>({})),
+      WORKER_URL?fetch(WORKER_URL+'/articulos').then(r=>r.json()).catch(()=>({})):Promise.resolve({}),
+    ]);
+    IMAGES_MAP=im.images||{};
+    CATALOG=(cat.products||[]).map(p=>({codigo:p.codigo,titulo:p.titulo||p.articulo||''}));
+    ARTICLES=arts.articulos||[];
+    if(!ARTICLES.length && !WORKER_URL){
+      const m={}; SAMPLE.forEach(r=>{m[r.nombre]=(m[r.nombre]||0)+r.cantidad;});
+      ARTICLES=Object.entries(m).map(([nombre,unidades])=>({nombre,unidades})).sort((a,b)=>b.unidades-a.unidades);
+    }
+  }catch(e){}
+}
+
+function collectArts(cat){
+  const out=[...(cat.articles||[])];
+  (cat.children||[]).forEach(ch=>(ch.articles||[]).forEach(a=>{if(!out.includes(a))out.push(a);}));
+  return out;
+}
+function artCard(name,uni,selSet){
+  const img=articleImage(name), sel=selSet.has(name)?' sel':'';
+  const thumb=img
+    ? `<img class="thumb" src="${img}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb-ph',textContent:'📦'}))">`
+    : `<div class="thumb-ph">📦</div>`;
+  return `<div class="art-card${sel}" data-name="${encodeURIComponent(name)}">${thumb}<div class="tick">✓</div>`+
+    `<div class="cap">${name}</div>${uni!=null?`<div class="uni">${fmt(uni)} u</div>`:''}</div>`;
+}
+
+let _selBuf=new Set();
+function renderModal(){
+  const q=($('selSearch').value||'').trim().toLowerCase(), body=$('selBody');
+  const uniOf={}; ARTICLES.forEach(a=>uniOf[a.nombre]=a.unidades);
+  let html='';
+  if(q){
+    const hits=ARTICLES.filter(a=>a.nombre.toLowerCase().includes(q)).slice(0,60);
+    html = hits.length
+      ? `<div class="cat-title">🔎 Resultados (${hits.length})</div><div class="art-grid">`+hits.map(a=>artCard(a.nombre,a.unidades,_selBuf)).join('')+`</div>`
+      : `<div class="sel-empty">Sin resultados para "${q}"</div>`;
+  }else{
+    QUICK_ACCESS.forEach(cat=>{
+      html+=`<div class="cat-title">${cat.icon||''} ${cat.cat}</div><div class="art-grid">`+
+        collectArts(cat).map(n=>artCard(n,uniOf[n],_selBuf)).join('')+`</div>`;
+    });
+  }
+  body.innerHTML=html;
+  body.querySelectorAll('.art-card').forEach(c=>c.onclick=()=>{
+    const n=decodeURIComponent(c.dataset.name);
+    if(_selBuf.has(n))_selBuf.delete(n); else _selBuf.add(n);
+    c.classList.toggle('sel'); $('selCount').textContent=_selBuf.size;
+  });
+  $('selCount').textContent=_selBuf.size;
+}
+function openModal(){ _selBuf=new Set(state.articulos); $('selSearch').value=''; renderModal(); $('selModal').classList.add('open'); }
+function closeModal(){ $('selModal').classList.remove('open'); }
+function applyModal(){ state.articulos=[..._selBuf]; closeModal(); renderSelChips(); refresh(); }
+function renderSelChips(){
+  const el=$('selChips');
+  if(!state.articulos.length){ el.style.display='none'; $('selOpen').textContent='＋ Analizar artículos puntuales'; return; }
+  el.style.display='flex'; $('selOpen').textContent='✎ Editar artículos del análisis';
+  el.innerHTML=state.articulos.map(n=>{
+    const img=articleImage(n);
+    return `<span class="sel-chip">${img?`<img src="${img}">`:''}${n}<button data-n="${encodeURIComponent(n)}">×</button></span>`;
+  }).join('')+`<button class="sel-clear" id="selChipsClear">limpiar todo</button>`;
+  el.querySelectorAll('.sel-chip button').forEach(b=>b.onclick=()=>{
+    state.articulos=state.articulos.filter(x=>x!==decodeURIComponent(b.dataset.n)); renderSelChips(); refresh();
+  });
+  const clr=$('selChipsClear'); if(clr) clr.onclick=()=>{ state.articulos=[]; renderSelChips(); refresh(); };
+}
+$('selOpen').onclick=openModal;
+$('selClose').onclick=closeModal;
+$('selModal').onclick=e=>{ if(e.target===$('selModal')) closeModal(); };
+$('selSearch').oninput=renderModal;
+$('selModalApply').onclick=applyModal;
+$('selModalClear').onclick=()=>{ _selBuf=new Set(); renderModal(); };
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+async function init(){
+  if(!WORKER_URL){
+    $('demoBadge').innerHTML='<span class="demo-badge">◆ Datos de ejemplo — conectá el Worker en WORKER_URL</span>';
+    buildAccChips(CUENTAS);
+    $('metaLine').textContent='modo ejemplo · '+SAMPLE.length+' líneas';
+  }else{
+    try{
+      const m=await fetch(WORKER_URL+'/meta').then(r=>r.json());
+      $('metaLine').textContent=`${fmt(m.count)} ventas · ${m.minFecha} → ${m.maxFecha}`;
+      const cs=(m.cuentas&&m.cuentas.length)?m.cuentas:CUENTAS;
+      RAW_CUENTAS=cs; buildAccChips(cs);
+    }catch(e){ $('metaLine').textContent='error de conexión'; buildAccChips(CUENTAS); }
+  }
+  syncColorHint();
+  setPeriod(daysAgo(30),todayISO(),'últimos 30 días');
+  // Datos del selector (imágenes + catálogo + lista de artículos) en segundo plano.
+  loadSelectorData().then(renderSelChips);
+}
+init();
+</script>
+<script>
+// Registro del Service Worker (para instalar como app). En file:// no corre, no pasa nada.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
