@@ -71,6 +71,19 @@ body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--tex
 .p-color .bar-fill{background:linear-gradient(90deg,#2a7db8,var(--blue));}
 .p-talle .bar-fill{background:linear-gradient(90deg,#00a152,var(--green));}
 .bar-val{flex:0 0 auto;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--text);min-width:34px;text-align:right;}
+.bar-stock{flex:0 0 auto;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);min-width:40px;text-align:right;white-space:nowrap;}
+.bar-stock b{color:var(--muted-2);font-weight:700;}
+/* nombre dentro de la barra (solo se usa en celular) */
+.bar-name-in{display:none;}
+@media(max-width:600px){
+  .bar-name{display:none;}
+  .bar-track{height:26px;}
+  .bar-name-in{display:block;position:absolute;left:8px;right:8px;top:50%;transform:translateY(-50%);
+    font-size:11px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    -webkit-text-stroke:0.4px rgba(0,0,0,.85);        /* contorno oscuro en cada letra */
+    text-shadow:0 0 3px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.9), 0 1px 2px rgba(0,0,0,.9);
+    pointer-events:none;z-index:2;}
+}
 .empty{color:var(--muted);font-size:12px;text-align:center;padding:16px 0;font-family:'Space Mono',monospace;}
 
 .demo-badge{display:inline-block;margin:2px 0 10px;font-family:'Space Mono',monospace;font-size:10px;
@@ -366,18 +379,42 @@ function renderBars(el,items,cls,opts={}){
   if(!items||!items.length){el.innerHTML='<div class="empty">sin datos en el período</div>';return;}
   const M=METRICS[state.metric], key=M.dim;
   const max=Math.max(...items.map(i=>i[key]||0))||1;
+  const showStock = opts.stock && Object.keys(opts.stock).length>0;
   el.innerHTML=items.map(i=>{
     const v=i[key]||0;
     const w=Math.max(4,(v/max)*100);
     const sel=opts.selKey && i.k===opts.selKey ? ' sel':'';
     const clk=opts.onClick ? ' clickable':'';
+    const stkHtml = showStock ? `<div class="bar-stock" title="stock">📦 <b>${fmt(opts.stock[i.k]||0)}</b></div>` : '';
     return `<div class="bar-row${clk}${sel}" data-k="${encodeURIComponent(i.k)}">
       <div class="bar-name" title="${i.k}">${i.k}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div>
-      <div class="bar-val">${M.fmt(v)}</div></div>`;
+      <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div><span class="bar-name-in">${i.k}</span></div>
+      <div class="bar-val">${M.fmt(v)}</div>${stkHtml}</div>`;
   }).join('');
   if(opts.onClick) el.querySelectorAll('.bar-row').forEach(row=>
     row.onclick=()=>opts.onClick(decodeURIComponent(row.dataset.k)));
+}
+
+// Orden natural de talles: XS<S<M<L<XL<2XL<3XL ; numéricos por su número (4<6<8, 85<90<95).
+function talleOrder(t){
+  const s=(t||'').toUpperCase().trim();
+  const m={XS:50,S:51,M:52,L:53,XL:54,XXL:55,'2XL':55,XXXL:56,'3XL':56,'4XL':57};
+  if(m[s]!==undefined) return m[s];
+  const n=parseFloat(s.replace(',','.'));
+  return isNaN(n)?999:n;
+}
+
+// ── STOCK (del worker mikra-stock-cache) — suma por artículo/color/talle ──────
+let STOCK_PRODUCTS=[];   // [{titulo,color,talle,stock}]
+function stockPor(dimKey){
+  const f=state, m={};
+  for(const p of STOCK_PRODUCTS){
+    if(f.articulos.length && !f.articulos.includes(p.titulo)) continue;
+    if(dimKey==='talle' && f.color && p.color!==f.color) continue;
+    const k=p[dimKey]||'—';
+    m[k]=(m[k]||0)+(p.stock||0);
+  }
+  return m;
 }
 
 async function refresh(){
@@ -393,15 +430,19 @@ async function refresh(){
   $('mProm').textContent=fmtMoney(t.gananciaArs||0); $('lProm').textContent='ganan. ARS';
 
   renderBars($('listSku'),data.topSku,'sku',{
+    stock: stockPor('titulo'),
     selKey: state.articulos.length===1 ? state.articulos[0] : null,
     onClick:(k)=>{ state.articulos = (state.articulos.length===1 && state.articulos[0]===k)?[]:[k];
       renderSelChips(); refresh(); }
   });
   renderBars($('listColor'),data.topColor,'color',{
+    stock: stockPor('color'),
     selKey:state.color,
     onClick:(k)=>{ state.color = (state.color===k)?'':k; syncColorHint(); refresh(); }
   });
-  renderBars($('listTalle'),data.topTalle,'talle');
+  // Talles SIEMPRE en orden de talle (S,M,L,XL... o 4,6,8...), no por más vendido.
+  const tallesOrden=(data.topTalle||[]).slice().sort((a,b)=>talleOrder(a.k)-talleOrder(b.k));
+  renderBars($('listTalle'),tallesOrden,'talle',{ stock: stockPor('talle') });
   renderChart();
 }
 
@@ -672,7 +713,9 @@ async function loadSelectorData(){
       WORKER_URL?fetch(WORKER_URL+'/articulos').then(r=>r.json()).catch(()=>({})):Promise.resolve({}),
     ]);
     IMAGES_MAP=im.images||{};
-    CATALOG=(cat.products||[]).map(p=>({codigo:p.codigo,titulo:p.titulo||p.articulo||''}));
+    const prods=cat.products||[];
+    CATALOG=prods.map(p=>({codigo:p.codigo,titulo:p.titulo||p.articulo||''}));
+    STOCK_PRODUCTS=prods.map(p=>({titulo:(p.titulo||p.articulo||''),color:p.color||'',talle:p.talle||'',stock:+(p.stock||0)}));
     ARTICLES=arts.articulos||[];
     if(!ARTICLES.length && !WORKER_URL){
       const m={}; SAMPLE.forEach(r=>{m[r.nombre]=(m[r.nombre]||0)+r.cantidad;});
@@ -759,7 +802,7 @@ async function init(){
   syncColorHint();
   setPeriod(daysAgo(30),todayISO(),'últimos 30 días');
   // Datos del selector (imágenes + catálogo + lista de artículos) en segundo plano.
-  loadSelectorData().then(renderSelChips);
+  loadSelectorData().then(()=>{ renderSelChips(); refresh(); });   // refresca para mostrar el stock
 }
 init();
 </script>
